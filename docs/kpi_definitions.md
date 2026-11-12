@@ -1,61 +1,66 @@
 # Financial Intelligence | KPI Definitions
 
-**Version:** 0.3 — Final for Phase 1; approved for Phase 2 (data model design)  
-**Scope:** Synthetic USD payment attempts; all date filters use Eastern Time unless explicitly stated.  
+**Version:** 1.0 — Approved  
+**Scope:** Synthetic USD payment attempts; ET reporting unless noted.  
 **Related:** [business_requirements.md](business_requirements.md)
 
 ## Canonical rules
-- **Attempt cohort:** attempts whose `attempt_timestamp_et` falls within the selected reporting period.
-- **Status:** each attempt has one current status. It can change only once, from `Pending` to a final status (`Success`, `Failed`, `Cancelled`). See requirements §4.1.
-- **Processed outcomes:** `Success` and `Failed` **only**.
-- **Adjustment events:** refunds and reversals are separate records linked to original successful transactions. They do not overwrite the original attempt status. See requirements §4.2 for the difference between the two.
-- **Currency:** USD. Amounts are summed from `DECIMAL(18,2)`, not floating point.
-- **Rate display:** percentage to two decimals; compute from unrounded counts, then round only for display. Return blank/N/A if denominator is zero.
-- **Finality:** a period's rate KPIs are final once the period has no `Pending` attempts. Until then, the period's rates may still change.
+- **Valid attempt:** curated record that passes required fields, types, status/failure-code and other DQ checks; rejected rows never contribute to KPIs.
+- **Attempt cohort:** original attempts selected by `attempt_timestamp_et`; adjustment activity selected by its own `adjustment_timestamp_et`.
+- **Processed outcomes:** `Success` and `Failed` only; `Pending` and `Cancelled` excluded from rate denominator.
+- **Outcome finality:** a cohort's success/failure rates are final when no attempts remain Pending. **This does not finalize refund/reversal rates**, which can change when later adjustments arrive.
+- **Synced date slicer:** the selected ET date range filters payment KPIs by original attempt date and refund/reversal **amount** KPIs by adjustment event date; each card labels its date basis. Cohort adjustment rates use original attempt-date selection and one explicit report-level as-of cutoff.
+- **Adjustment as-of cutoff:** only adjustments observed by the stated extraction/reporting cutoff are included in cohort rates. A cohort is **immature while as-of cutoff < cohort period end (ET) + 30 days**. Cohort period end means the end of the last calendar day of the selected cohort period, not the last observed attempt; label immature trends separately. Mature does not mean permanently final.
+- **Currency:** USD `DECIMAL(18,2)`; round rates only for display to 2 decimals; zero denominator → blank/N/A. Region excluded.
 
 ## KPI dictionary
-| KPI | Definition / calculation | Includes / excludes | Date basis |
-|---|---|---|---|
-| Total transactions (attempts) | `COUNT(DISTINCT transaction_id)` | All valid attempts, including Pending and Cancelled | Attempt date ET |
-| Successful transactions | Count of valid attempts with `status = 'Success'` | Original attempts, including those later refunded or reversed | Attempt date ET |
-| Failed transactions | Count of valid attempts with `status = 'Failed'` | Excludes Pending, Cancelled | Attempt date ET |
-| Pending transactions | Count of valid attempts with `status = 'Pending'` | Excludes final statuses | Attempt date ET |
-| Cancelled transactions | Count of valid attempts with `status = 'Cancelled'` | Excludes processed outcomes | Attempt date ET |
-| Success rate | `Success / (Success + Failed) × 100` | Excludes Pending and Cancelled from denominator | Attempt date ET |
-| Failure rate | `Failed / (Success + Failed) × 100` | Excludes Pending and Cancelled | Attempt date ET |
-| Transaction value (gross successful) | `SUM(amount_usd)` where `status = 'Success'` | Includes original value of later refunded or reversed payments; excludes failed/pending/cancelled attempts | Attempt date ET |
-| Attempted value | `SUM(amount_usd)` for all valid attempts | Separate optional KPI; **not** labeled Transaction Value | Attempt date ET |
-| Refund amount | Sum of valid `Refund` adjustment amounts | Refunds only, no reversals | Adjustment event date ET |
-| Reversal amount | Sum of valid `Reversal` adjustment amounts | Reversals only, no refunds | Adjustment event date ET |
-| Net successful value | **Out of scope for v1.** Planned enhancement: cohort-based, i.e. gross value of payments attempted in a period minus all refunds and reversals linked to those same payments | Not shown in v1. Subtracting one period's adjustments from that period's gross value would mix different payment cohorts | Attempt date ET of the original payment (planned) |
-| Failure rate by hour | Failed attempts in hour / (Success + Failed attempts in same hour) × 100 | ET hour-of-day, 0–23; excludes Pending/Cancelled | Attempt timestamp ET |
-| Failure share by reason | Failed attempts with code / all failed attempts × 100 | Only valid failure codes | Attempt date ET |
-| Aged pending (operational) | Count of attempts still `Pending` more than 24 hours after attempt timestamp | Data-quality indicator, not a business KPI | As of last load |
+| KPI | Definition | Date basis |
+|---|---|---|
+| Total attempts | Count distinct valid `transaction_id`, including Pending and Cancelled | Attempt date ET |
+| Success count | Count status `Success`, including later adjusted originals | Attempt date ET |
+| Failure count | Count status `Failed` | Attempt date ET |
+| Pending count | Count status `Pending` | Attempt date ET |
+| Cancelled count | Count status `Cancelled` | Attempt date ET |
+| Success rate | Success / (Success + Failed) × 100 | Attempt date ET |
+| Failure rate | Failed / (Success + Failed) × 100 | Attempt date ET |
+| Gross successful value (Transaction Value) | Sum original `amount_usd` for Success attempts only | Attempt date ET |
+| Attempted value (optional) | Sum original amount for all valid attempts; never label as Transaction Value | Attempt date ET |
+| Refund amount | Sum valid Refund adjustment amounts, excluding reversals | Adjustment date ET |
+| Reversal amount | Sum valid Reversal adjustment amounts, excluding refunds | Adjustment date ET |
+| Refunded transaction rate | Distinct successful originals with ≥1 valid refund / all successful originals in same attempt-date cohort × 100 | Original attempt-date ET cohort; as-of cutoff |
+| Refund value rate | Sum refunds attributed to original successful cohort / gross successful value of **same cohort** × 100 | Original attempt-date ET cohort; as-of cutoff |
+| Reversed transaction rate | Distinct successful originals with a valid reversal / all successful originals in same cohort × 100 | Original attempt-date ET cohort; as-of cutoff |
+| Failure rate by hour | Failed / (Success + Failed) within ET hour (0–23) × 100 | Attempt hour ET |
+| Failure share by reason | Failures with code / all failed attempts × 100 | Attempt date ET |
+| Aged pending | Pending attempts older than 24 hours at extraction cutoff | As-of cutoff |
+| Net successful value (v2 only) | Cohort gross successful value − refunds attributed to cohort − reversals attributed to cohort | Original attempt cohort and explicit as-of cutoff; **not a v1 period KPI** |
 
-## Period-over-period comparison
-For **completed calendar months**, compare the selected month with the **immediately preceding completed calendar month** in ET:
+## Period comparisons
+- Completed ET calendar month vs immediately preceding completed month only. Display labels such as `Oct 2026 vs Sep 2026`.
+- Count/value growth = `(current − prior) / prior × 100`; prior zero → blank. Rate change = current minus prior in **percentage points**.
+- Current incomplete month = `MTD`, **no** MoM percentage change in v1.
+- Cohort refund/reversal rates are shown with as-of cutoff and maturity status; avoid misleading comparisons between cohorts of unequal age.
 
-- **Count/value growth %** = `(current − prior) / prior × 100` (blank if prior = 0).
-- **Success/failure rate change** = `current rate − prior rate`, expressed in **percentage points (pp)**, not relative percent.
-- Display the actual months (for example, `Oct 2026 vs Sep 2026`) rather than an ambiguous "vs. prior period".
-- **No comparison for incomplete months in v1**; mark them MTD without a MoM delta.
+## Data consistency and acceptance tests
+1. Total attempts = Success + Failed + Pending + Cancelled under the same filters.
+2. Success rate + Failure rate = 100% when processed denominator > 0 (allow display rounding).
+3. Overall success rate equals the processed-count-weighted mean of component monthly rates for the same cohort; it cannot lie outside all component rates.
+4. Gross successful value excludes Failed, Pending and Cancelled. Original Success status is unchanged by refunds/reversals.
+5. Every adjustment references a Success original, amount > 0, timestamp ≥ original attempt; cumulative refunds + reversals ≤ original amount; reversals full-only and mutually exclusive with refunds.
+6. Hourly failure visual uses ET hours 0–23 and labeled percentage axis. DST spring hour 02 may be absent, fall hour 01 may occur twice (two UTC hours); aggregation must not silently double-count source events.
+7. Peak hour = 18:00 inclusive to 21:00 exclusive ET (hours 18,19,20). Uplift = `(peak failure rate / nonpeak failure rate − 1) × 100`; publish only after computing from generated data and disclose injected pattern.
+8. SQL and DAX match on identical filters, cohort basis and as-of cutoff.
+9. **Idempotency proof:** run the identical incremental batch twice. First run has expected inserts/updates/rejections; second run records `ALREADY_PROCESSED`, **0 inserts, 0 updates**, unchanged curated counts **and row values**. Reconciliation does not count replay rows twice.
+10. **Conflict proof:** new-batch exact duplicate → `DUPLICATE_RECORD`; same immutable values and Pending → final → accepted `VALID_STATUS_UPDATE`; attempted change to terminal status → `INVALID_STATUS_TRANSITION`; changed amount, merchant or payment method under same ID → `IMMUTABLE_FIELD_CONFLICT`. Same `transaction_id` twice within one batch → second row `DUPLICATE_IN_BATCH`; changed `failure_reason` for an already `Failed` attempt → `IMMUTABLE_FIELD_CONFLICT`. Every rejected row has a reason code and batch ID.
+11. Adjustment duplicate and relationship proof: repeated `adjustment_id` → `DUPLICATE_ADJUSTMENT` or `ADJUSTMENT_FIELD_CONFLICT`; missing/non-Success original, over-limit amount, invalid synthetic settlement timing and forbidden reversal/refund combinations are rejected with documented reason codes. Attempts are applied before same-batch adjustments.
+12. Refund/reversal cohort rate display includes as-of cutoff and maturity label; immature cohorts (as-of cutoff < ET cohort period end + 30 days) are clearly identified. Later adjustments may still revise mature cohort rates.
 
-## Data consistency tests
-1. `Total attempts = Success + Failed + Pending + Cancelled` for every filter selection.
-2. `Success rate + Failure rate = 100%` when at least one processed outcome exists (allow display rounding).
-3. Overall success rate must be the **processed-volume-weighted average** of the component monthly success rates, if months partition the same selected cohort; it cannot fall below every monthly rate or exceed every monthly rate.
-4. `Gross successful value` never includes failed, pending, or cancelled attempts.
-5. For every transaction, `refunds + reversals ≤ original amount`, and adjustments exist only for `Success` attempts.
-6. Hourly failure-rate visual has 24 hourly buckets (0–23) where applicable, a labeled percentage axis, and an explicit ET timezone label. On DST-change days, ET hour 2 is missing (spring forward) and ET hour 1 appears twice (fall back); this is expected.
-7. Peak-hour uplift claim must specify the comparison: `(peak failure rate / non-peak failure rate − 1) × 100`, where peak is **18:00–20:59 ET** (three hourly buckets: 18, 19, 20); no uplift percentage is published before computing it.
-8. Reconciliation SQL and DAX measures must match on filters, date basis, and status rules.
-
-## Approved clarifications
-- **"6–9 PM" means 18:00 inclusive to 21:00 exclusive ET**, i.e. three hourly buckets.
-- Refunds and reversals are distinct adjustment event types; gross transaction value is unchanged by later adjustments.
-- Monthly comparisons use completed months only in v1.
-- Only `Pending` → final status updates are allowed; final statuses never change.
-- v1 shows **Gross Success Value, Refund Amount, and Reversal Amount** separately. Cohort-based Net Value is deferred to a later version.
+## Clarifications (draft)
+- Cancelled = pre-processing cancellation by customer/merchant; Reversal = pre-settlement void of successful payment; Refund = post-settlement return. These are distinct.
+- Count-based adjustment rates use distinct **successful original** IDs in same cohort; refund value rate uses **same-cohort gross successful value**, not all attempts or event-date gross value.
+- Payment methods: `Card`, `ACH`, `Wallet`; failure codes: `AUTH_TIMEOUT`, `INSUFFICIENT_FUNDS`, `FRAUD_DECLINE`, `INVALID_PAYMENT_DETAILS`, `PROCESSOR_ERROR`, `LIMIT_EXCEEDED`, `OTHER`.
+- Status may only change Pending → Success/Failed/Cancelled; final statuses immutable. Exact duplicate and immutable-field conflicts are not valid status updates.
+- One full load and one incremental batch are in v1; advanced scheduling deferred.
 
 ## Implementation note
-Use one canonical SQL view or documented metric query per KPI and mirror the same filter semantics in DAX. Validate both on small test cases before generating large synthetic batches.
+Use canonical SQL metric queries/views and equivalent DAX semantics; test on small fixtures before generating large datasets. Approved as v1.0.
