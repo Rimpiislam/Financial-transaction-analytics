@@ -1,0 +1,2 @@
+# GitHub language stats: these scripts are SQL Server T-SQL, not PostgreSQL (PL/pgSQL)
+*.sql linguist-language=TSQL
