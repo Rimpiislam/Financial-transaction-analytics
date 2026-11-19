@@ -1,0 +1,12 @@
+﻿Model: 7 tables, 46 measures
+
+SUMMARY: 446 checks passed, 0 failed; 34 visuals, 46 JSON files
+
+=== Negative controls (2026-11-18) ===
+1. injected [Success Cnt] + dim_date.full_datex into a scratch copy -> checker reported both, exit 1
+2. injected '/// injected' above a relationship -> checker reported it, exit 1
+   (added after Desktop open #1: "Property 'description' is unknown and is not expected in the situation it appears.")
+3. renamed _Measures back to 'Measures' -> checker reported the reserved name, exit 1
+   (added after Desktop open #2: "Unsupported Table name "Measures" has been found in data model schema.")
+4. page-bounds check reads each page.json size; the old hard-coded 720 flagged 6 visuals -> bounds check is live.
+5. empty-visual-folder check added after 15 stale empty folders were found (OneDrive kept them); removed.

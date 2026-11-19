@@ -1,0 +1,33 @@
+﻿=== Fingerprint BEFORE re-invocation (scratch) ===
+tbl|n|chk
+---|-|---
+curated.fact_payment_attempt|1000|105907222
+curated.fact_adjustment|102|1270952451
+audit.reject_log|0|NULL
+staging.payment_attempt_raw|1000|762839033
+staging.adjustment_raw|102|-446654098
+audit.etl_run (runs 1-2 only)|2|1249321355
+run_id|source_type|run_status|rows_read|rows_loaded|rows_rejected|message
+------|-----------|----------|---------|-----------|-------------|-------
+1|PAYMENT_ATTEMPT|COMPLETED|1000|1000|0|Curated load reconciled: inserted=1000, updated=0, rejected=0
+2|ADJUSTMENT|COMPLETED|102|102|0|Curated load reconciled: inserted=102, updated=0, rejected=0
+=== Re-invoke runs 1 and 2 ===
+Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Scratch
+run_id=1 PAYMENT_ATTEMPT: ALREADY_PROCESSED (Batch already COMPLETED by run_id=1; no changes)
+run_id=2 ADJUSTMENT: ALREADY_PROCESSED (Batch already COMPLETED by run_id=2; no changes)
+=== Fingerprint AFTER re-invocation (scratch) ===
+tbl|n|chk
+---|-|---
+curated.fact_payment_attempt|1000|105907222
+curated.fact_adjustment|102|1270952451
+audit.reject_log|0|NULL
+staging.payment_attempt_raw|1000|762839033
+staging.adjustment_raw|102|-446654098
+audit.etl_run (runs 1-2 only)|2|1249321355
+run_id|source_type|run_status|rows_read|rows_loaded|rows_rejected|message
+------|-----------|----------|---------|-----------|-------------|-------
+1|PAYMENT_ATTEMPT|COMPLETED|1000|1000|0|Curated load reconciled: inserted=1000, updated=0, rejected=0
+2|ADJUSTMENT|COMPLETED|102|102|0|Curated load reconciled: inserted=102, updated=0, rejected=0
+3|PAYMENT_ATTEMPT|ALREADY_PROCESSED|0|0|0|Batch already COMPLETED by run_id=1; no changes
+4|ADJUSTMENT|ALREADY_PROCESSED|0|0|0|Batch already COMPLETED by run_id=2; no changes
+=== Data tables identical before/after: True ===

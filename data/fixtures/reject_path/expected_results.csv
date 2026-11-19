@@ -1,0 +1,56 @@
+source_type,source_row_ref,expected_outcome,expected_details,what_it_proves
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:2,MISSING_REQUIRED_FIELD,,blank transaction_id
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:3,INVALID_FORMAT,,unparseable timestamp
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:4,INVALID_FORMAT,,amount with 3 decimals is not silently rounded
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:5,NONPOSITIVE_AMOUNT,,amount <= 0
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:6,FUTURE_ATTEMPT_TIMESTAMP,,attempt after stored batch cutoff 2026-11-13
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:7,INVALID_CONTROLLED_VALUE,,non-USD currency
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:8,INVALID_CONTROLLED_VALUE,,unknown payment method
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:9,INVALID_CONTROLLED_VALUE,,unknown failure reason on Failed
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:10,FAILURE_REASON_STATUS_MISMATCH,,reason on a Success row
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:11,FAILURE_REASON_STATUS_MISMATCH,,Failed without reason (locked Step 4 classification)
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:12,INVALID_FORMAT,,ET date outside dim_date range is rejected instead of an FK error
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:13,INSERTED,,valid new attempt (adjustment parent)
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:14,DUPLICATE_IN_BATCH,,second identical occurrence of FX_PARENT
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:15,MISSING_REQUIRED_FIELD,"NONPOSITIVE_AMOUNT, DUPLICATE_IN_BATCH",precedence across stages 1 and 3 with details
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:16,INVALID_FORMAT,,first occurrence of FX_DUPFIRST is itself rejected
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:17,DUPLICATE_IN_BATCH,,first parseable occurrence reserves the ID even when rejected
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:18,DUPLICATE_RECORD,,identical to an existing curated attempt
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:19,IMMUTABLE_FIELD_CONFLICT,,changed merchant on existing attempt
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:20,INVALID_STATUS_TRANSITION,,Success -> Failed on a terminal attempt
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:21,UPDATED,,valid Pending -> Success update
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:22,UPDATED,,valid Pending -> Failed update with reason
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:23,IMMUTABLE_FIELD_CONFLICT,,changed failure reason on a terminal Failed attempt
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:24,INSERTED,,valid parent for reversal tests
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:25,INSERTED,,valid parent for timing / ordering tests
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:26,INSERTED,,Pending parent for non-success adjustment test
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:27,INSERTED,,"trim + case normalization, 1-decimal amount, no milliseconds"
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:28,INSERTED,,ET date after DST end (UTC 11-02 03:30 -> ET 11-01)
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:29,INSERTED,,ET date during DST (UTC 07-01 03:30 -> ET 06-30)
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:30,INVALID_CONTROLLED_VALUE,FAILURE_REASON_STATUS_MISMATCH,tie-break inside stage 2
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:31,INVALID_FORMAT,,non-ISO timestamp (space separator)
+PAYMENT_ATTEMPT,payment_attempts_fixture.csv:32,INVALID_FORMAT,,status_updated_at before attempt timestamp
+ADJUSTMENT,adjustments_fixture.csv:2,MISSING_REQUIRED_FIELD,,blank adjustment_id
+ADJUSTMENT,adjustments_fixture.csv:3,INVALID_FORMAT,,non-numeric amount
+ADJUSTMENT,adjustments_fixture.csv:4,NONPOSITIVE_AMOUNT,,zero amount
+ADJUSTMENT,adjustments_fixture.csv:5,INVALID_CONTROLLED_VALUE,,unknown adjustment type
+ADJUSTMENT,adjustments_fixture.csv:6,INSERTED,,valid partial refund 40 of 100
+ADJUSTMENT,adjustments_fixture.csv:7,DUPLICATE_IN_BATCH,,repeated adjustment_id in batch
+ADJUSTMENT,adjustments_fixture.csv:8,DUPLICATE_ADJUSTMENT,,identical to existing curated adjustment
+ADJUSTMENT,adjustments_fixture.csv:9,ADJUSTMENT_FIELD_CONFLICT,,existing adjustment_id with changed amount
+ADJUSTMENT,adjustments_fixture.csv:10,ORPHAN_ADJUSTMENT,,parent transaction does not exist
+ADJUSTMENT,adjustments_fixture.csv:11,ADJUSTMENT_ON_NON_SUCCESS,,parent is Pending (parent loaded earlier in the same fixture batch)
+ADJUSTMENT,adjustments_fixture.csv:12,INVALID_ADJUSTMENT_TIMING,,refund before settlement (attempt + 24h)
+ADJUSTMENT,adjustments_fixture.csv:13,INSERTED,,full reversal before settlement
+ADJUSTMENT,adjustments_fixture.csv:14,INVALID_ADJUSTMENT_RULE,ADJUSTMENT_EXCEEDS_ORIGINAL,second reversal (same batch)
+ADJUSTMENT,adjustments_fixture.csv:15,INVALID_ADJUSTMENT_RULE,ADJUSTMENT_EXCEEDS_ORIGINAL,refund after reversal
+ADJUSTMENT,adjustments_fixture.csv:16,INVALID_ADJUSTMENT_RULE,,partial reversal
+ADJUSTMENT,adjustments_fixture.csv:17,INSERTED,,second partial refund: running total 90 of 100
+ADJUSTMENT,adjustments_fixture.csv:18,ADJUSTMENT_EXCEEDS_ORIGINAL,,running total would be 110 of 100
+ADJUSTMENT,adjustments_fixture.csv:19,INSERTED,,running total 100 of 100: rejected row 18 is not counted
+ADJUSTMENT,adjustments_fixture.csv:20,INVALID_ADJUSTMENT_TIMING,,reversal exactly at settlement
+ADJUSTMENT,adjustments_fixture.csv:21,INVALID_ADJUSTMENT_TIMING,,adjustment before the attempt
+ADJUSTMENT,adjustments_fixture.csv:22,INVALID_FORMAT,INVALID_CONTROLLED_VALUE,stage 1 beats stage 2; stage 5 (orphan) not evaluated
+ADJUSTMENT,adjustments_fixture.csv:23,ADJUSTMENT_EXCEEDS_ORIGINAL,,running order is by adjustment timestamp: earlier-dated row 24 counted first
+ADJUSTMENT,adjustments_fixture.csv:24,INSERTED,,earlier timestamp although later in file
+ADJUSTMENT,adjustments_fixture.csv:25,ADJUSTMENT_ON_NON_SUCCESS,,parent is Failed

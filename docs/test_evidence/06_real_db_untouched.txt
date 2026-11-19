@@ -1,0 +1,13 @@
+﻿=== REAL database after all Phase 4C testing (2026-11-18T20:07:25) ===
+tbl|n|chk
+---|-|---
+curated.fact_payment_attempt|1000|105907222
+curated.fact_adjustment|102|1270952451
+audit.reject_log|0|NULL
+staging.payment_attempt_raw|1000|762839033
+staging.adjustment_raw|102|-446654098
+audit.etl_run (runs 1-2 only)|2|-1413640051
+run_id|source_type|run_status|rows_read|rows_loaded|rows_rejected|message
+------|-----------|----------|---------|-----------|-------------|-------
+1|PAYMENT_ATTEMPT|COMPLETED|1000|1000|0|Curated load reconciled
+2|ADJUSTMENT|COMPLETED|102|102|0|Curated load reconciled

@@ -1,0 +1,119 @@
+﻿== Restoring FinancialIntelligence_Fixture from backup (real DB untouched)
+== Staged fixture runs: payment run_id=3, adjustment run_id=4
+
+== F1: adjustment run before its payment run is COMPLETED -> FAILED, no data change
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=4: FAILED and rolled back: A payment run at or before this cutoff is not COMPLETED; process it first
+    loader> Stopping: later runs not processed.
+[PASS] F1 adjustment run marked FAILED -- RuntimeError: A payment run at or before this cutoff is not COMPLETED; process it first
+[PASS] F1 no data/staging change
+
+== F2: run locked by another session -> skipped, not marked FAILED
+[PASS] F2 test session acquired the lock
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=3 is being processed by another session; skipped (run not marked FAILED)
+    loader> Stopping: later runs not processed.
+[PASS] F2 loader reports lock busy
+[PASS] F2 run still RUNNING (not FAILED) -- RUNNING
+[PASS] F2 no data/staging change
+
+== F3: failure after all validation + writes -> full rollback, run FAILED
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=3: FAILED and rolled back: Injected failure after load (test hook --fail-after-load)
+    loader> Stopping: later runs not processed.
+[PASS] F3 payment run marked FAILED -- RuntimeError: Injected failure after load (test hook --fail-after-load)
+[PASS] F3 rejects + curated writes rolled back, staging intact
+
+== F4: retry the SAME run_ids after FAILED -> COMPLETED (payment, then adjustment)
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=3 PAYMENT_ATTEMPT: COMPLETED rows_read=31 inserted=7 updated=2 rejected=22
+    loader> run_id=4 ADJUSTMENT: COMPLETED rows_read=24 inserted=5 updated=0 rejected=19
+[PASS] F4 payment run COMPLETED on retry -- Curated load reconciled: inserted=7, updated=2, rejected=22
+[PASS] F4 adjustment run COMPLETED on retry -- Curated load reconciled: inserted=5, updated=0, rejected=19
+[PASS] F4 payment reconciliation rows_read = loaded + rejected -- {'status': 'COMPLETED', 'rows_read': 31, 'rows_loaded': 9, 'rows_rejected': 22, 'message': 'Curated load reconciled: inserted=7, updated=2, rejected=22'}
+[PASS] F4 adjustment reconciliation rows_read = loaded + rejected -- {'status': 'COMPLETED', 'rows_read': 24, 'rows_loaded': 5, 'rows_rejected': 19, 'message': 'Curated load reconciled: inserted=5, updated=0, rejected=19'}
+
+== R: every fixture row has the expected outcome / primary code / details
+[PASS] R payment_attempts_fixture.csv:2     MISSING_REQUIRED_FIELD -- blank transaction_id
+[PASS] R payment_attempts_fixture.csv:3     INVALID_FORMAT -- unparseable timestamp
+[PASS] R payment_attempts_fixture.csv:4     INVALID_FORMAT -- amount with 3 decimals is not silently rounded
+[PASS] R payment_attempts_fixture.csv:5     NONPOSITIVE_AMOUNT -- amount <= 0
+[PASS] R payment_attempts_fixture.csv:6     FUTURE_ATTEMPT_TIMESTAMP -- attempt after stored batch cutoff 2026-11-13
+[PASS] R payment_attempts_fixture.csv:7     INVALID_CONTROLLED_VALUE -- non-USD currency
+[PASS] R payment_attempts_fixture.csv:8     INVALID_CONTROLLED_VALUE -- unknown payment method
+[PASS] R payment_attempts_fixture.csv:9     INVALID_CONTROLLED_VALUE -- unknown failure reason on Failed
+[PASS] R payment_attempts_fixture.csv:10    FAILURE_REASON_STATUS_MISMATCH -- reason on a Success row
+[PASS] R payment_attempts_fixture.csv:11    FAILURE_REASON_STATUS_MISMATCH -- Failed without reason (locked Step 4 classification)
+[PASS] R payment_attempts_fixture.csv:12    INVALID_FORMAT -- ET date outside dim_date range is rejected instead of an FK error
+[PASS] R payment_attempts_fixture.csv:13    INSERTED -- valid new attempt (adjustment parent)
+[PASS] R payment_attempts_fixture.csv:14    DUPLICATE_IN_BATCH -- second identical occurrence of FX_PARENT
+[PASS] R payment_attempts_fixture.csv:15    MISSING_REQUIRED_FIELD -- precedence across stages 1 and 3 with details
+[PASS] R payment_attempts_fixture.csv:16    INVALID_FORMAT -- first occurrence of FX_DUPFIRST is itself rejected
+[PASS] R payment_attempts_fixture.csv:17    DUPLICATE_IN_BATCH -- first parseable occurrence reserves the ID even when rejected
+[PASS] R payment_attempts_fixture.csv:18    DUPLICATE_RECORD -- identical to an existing curated attempt
+[PASS] R payment_attempts_fixture.csv:19    IMMUTABLE_FIELD_CONFLICT -- changed merchant on existing attempt
+[PASS] R payment_attempts_fixture.csv:20    INVALID_STATUS_TRANSITION -- Success -> Failed on a terminal attempt
+[PASS] R payment_attempts_fixture.csv:21    UPDATED -- valid Pending -> Success update
+[PASS] R payment_attempts_fixture.csv:22    UPDATED -- valid Pending -> Failed update with reason
+[PASS] R payment_attempts_fixture.csv:23    IMMUTABLE_FIELD_CONFLICT -- changed failure reason on a terminal Failed attempt
+[PASS] R payment_attempts_fixture.csv:24    INSERTED -- valid parent for reversal tests
+[PASS] R payment_attempts_fixture.csv:25    INSERTED -- valid parent for timing / ordering tests
+[PASS] R payment_attempts_fixture.csv:26    INSERTED -- Pending parent for non-success adjustment test
+[PASS] R payment_attempts_fixture.csv:27    INSERTED -- trim + case normalization, 1-decimal amount, no milliseconds
+[PASS] R payment_attempts_fixture.csv:28    INSERTED -- ET date after DST end (UTC 11-02 03:30 -> ET 11-01)
+[PASS] R payment_attempts_fixture.csv:29    INSERTED -- ET date during DST (UTC 07-01 03:30 -> ET 06-30)
+[PASS] R payment_attempts_fixture.csv:30    INVALID_CONTROLLED_VALUE -- tie-break inside stage 2
+[PASS] R payment_attempts_fixture.csv:31    INVALID_FORMAT -- non-ISO timestamp (space separator)
+[PASS] R payment_attempts_fixture.csv:32    INVALID_FORMAT -- status_updated_at before attempt timestamp
+[PASS] R adjustments_fixture.csv:2          MISSING_REQUIRED_FIELD -- blank adjustment_id
+[PASS] R adjustments_fixture.csv:3          INVALID_FORMAT -- non-numeric amount
+[PASS] R adjustments_fixture.csv:4          NONPOSITIVE_AMOUNT -- zero amount
+[PASS] R adjustments_fixture.csv:5          INVALID_CONTROLLED_VALUE -- unknown adjustment type
+[PASS] R adjustments_fixture.csv:6          INSERTED -- valid partial refund 40 of 100
+[PASS] R adjustments_fixture.csv:7          DUPLICATE_IN_BATCH -- repeated adjustment_id in batch
+[PASS] R adjustments_fixture.csv:8          DUPLICATE_ADJUSTMENT -- identical to existing curated adjustment
+[PASS] R adjustments_fixture.csv:9          ADJUSTMENT_FIELD_CONFLICT -- existing adjustment_id with changed amount
+[PASS] R adjustments_fixture.csv:10         ORPHAN_ADJUSTMENT -- parent transaction does not exist
+[PASS] R adjustments_fixture.csv:11         ADJUSTMENT_ON_NON_SUCCESS -- parent is Pending (parent loaded earlier in the same fixture batch)
+[PASS] R adjustments_fixture.csv:12         INVALID_ADJUSTMENT_TIMING -- refund before settlement (attempt + 24h)
+[PASS] R adjustments_fixture.csv:13         INSERTED -- full reversal before settlement
+[PASS] R adjustments_fixture.csv:14         INVALID_ADJUSTMENT_RULE -- second reversal (same batch)
+[PASS] R adjustments_fixture.csv:15         INVALID_ADJUSTMENT_RULE -- refund after reversal
+[PASS] R adjustments_fixture.csv:16         INVALID_ADJUSTMENT_RULE -- partial reversal
+[PASS] R adjustments_fixture.csv:17         INSERTED -- second partial refund: running total 90 of 100
+[PASS] R adjustments_fixture.csv:18         ADJUSTMENT_EXCEEDS_ORIGINAL -- running total would be 110 of 100
+[PASS] R adjustments_fixture.csv:19         INSERTED -- running total 100 of 100: rejected row 18 is not counted
+[PASS] R adjustments_fixture.csv:20         INVALID_ADJUSTMENT_TIMING -- reversal exactly at settlement
+[PASS] R adjustments_fixture.csv:21         INVALID_ADJUSTMENT_TIMING -- adjustment before the attempt
+[PASS] R adjustments_fixture.csv:22         INVALID_FORMAT -- stage 1 beats stage 2; stage 5 (orphan) not evaluated
+[PASS] R adjustments_fixture.csv:23         ADJUSTMENT_EXCEEDS_ORIGINAL -- running order is by adjustment timestamp: earlier-dated row 24 counted first
+[PASS] R adjustments_fixture.csv:24         INSERTED -- earlier timestamp although later in file
+[PASS] R adjustments_fixture.csv:25         ADJUSTMENT_ON_NON_SUCCESS -- parent is Failed
+[PASS] R every staged row has exactly one outcome
+[PASS] R every one of the 17 reject codes was triggered as a primary code
+
+== D: derived values on accepted rows
+[PASS] D UTC 2026-11-02 03:30 -> ET date 20261101 (after DST end, UTC-5) -- 20261101
+[PASS] D UTC 2026-07-01 03:30 -> ET date 20260630 (DST, UTC-4) -- 20260630
+[PASS] D ' FX_LOWER ' trimmed, usd->USD, card->Card, success->Success, 10.5->10.50 -- (20261101, Decimal('10.50'), 'USD', 'Success') Card
+[PASS] D adjustment attempt_date_key + payment_method_key copied from parent -- 5 rows
+
+== I: idempotency + duplicate staging run of a COMPLETED batch
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=3 PAYMENT_ATTEMPT: ALREADY_PROCESSED (Batch already COMPLETED by run_id=3; no changes)
+    loader> run_id=4 ADJUSTMENT: ALREADY_PROCESSED (Batch already COMPLETED by run_id=4; no changes)
+[PASS] I re-invoking COMPLETED runs changes no data
+[PASS] I two ALREADY_PROCESSED audit rows logged
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=7 PAYMENT_ATTEMPT: ALREADY_PROCESSED (Batch already COMPLETED by run_id=3; no changes)
+[PASS] I second RUNNING run of a COMPLETED batch -> ALREADY_PROCESSED -- Batch already COMPLETED by run_id=3; no changes
+[PASS] I ...and no curated/reject change
+
+== F5: staged row count != rows_read -> FAILED before any write
+    loader> Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Fixture
+    loader> run_id=8: FAILED and rolled back: run_id=8: staged rows 31 != rows_read 999
+    loader> Stopping: later runs not processed.
+[PASS] F5 run marked FAILED with count message -- RuntimeError: run_id=8: staged rows 31 != rows_read 999
+[PASS] F5 no data change
+
+== SUMMARY: 79 passed, 0 failed

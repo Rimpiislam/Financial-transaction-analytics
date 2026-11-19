@@ -1,0 +1,29 @@
+﻿=== Restore scratch + reset (2026-11-18T20:07:19) ===
+Changed database context to 'master'.
+Processed 760 pages for database 'FinancialIntelligence_Scratch', file 'FinancialIntelligence' on file 1.
+Processed 2 pages for database 'FinancialIntelligence_Scratch', file 'FinancialIntelligence_log' on file 1.
+RESTORE DATABASE successfully processed 762 pages in 0.013 seconds (457.632 MB/sec).
+Changed database context to 'FinancialIntelligence_Scratch'.
+db|run_id|source_type|run_status|rows_read|rows_loaded|rows_rejected
+--|------|-----------|----------|---------|-----------|-------------
+FinancialIntelligence_Scratch|1|PAYMENT_ATTEMPT|RUNNING|1000|NULL|NULL
+FinancialIntelligence_Scratch|2|ADJUSTMENT|RUNNING|102|NULL|NULL
+stg_pay|stg_adj|fpa|fadj|rejects
+-------|-------|---|----|-------
+1000|102|0|0|0
+=== New loader: runs 1 then 2 (scratch) ===
+Target: localhost\SQLEXPRESS01 / FinancialIntelligence_Scratch
+run_id=1 PAYMENT_ATTEMPT: COMPLETED rows_read=1000 inserted=1000 updated=0 rejected=0
+run_id=2 ADJUSTMENT: COMPLETED rows_read=102 inserted=102 updated=0 rejected=0
+=== Compare scratch (new loader) vs real (original loader) ===
+tbl|real_rows|scratch_rows|in_real_not_scratch|in_scratch_not_real
+---|---------|------------|-------------------|-------------------
+fact_payment_attempt|1000|1000|0|0
+fact_adjustment|102|102|0|0
+reject_log|0|0|NULL|NULL
+db|run_id|source_type|run_status|rows_read|rows_loaded|rows_rejected|message
+--|------|-----------|----------|---------|-----------|-------------|-------
+real|1|PAYMENT_ATTEMPT|COMPLETED|1000|1000|0|Curated load reconciled
+real|2|ADJUSTMENT|COMPLETED|102|102|0|Curated load reconciled
+scratch|1|PAYMENT_ATTEMPT|COMPLETED|1000|1000|0|Curated load reconciled: inserted=1000, updated=0, rejected=0
+scratch|2|ADJUSTMENT|COMPLETED|102|102|0|Curated load reconciled: inserted=102, updated=0, rejected=0

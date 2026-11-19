@@ -1,0 +1,19 @@
+﻿=== Navy/Cyan/Teal palette check (2026-11-18) ===
+Method: Python port of the dataviz checks (Machado 2009 CVD simulation, OKLab dE x100, WCAG contrast).
+Approximation: the skill's own validate_palette.js could not run (Node.js not installed).
+Chart surface = visual background #112a4d (navy).
+
+surface #112a4d
+  #22c3e6  contrast vs surface 6.85  OKLab L 0.76
+  #f5b301  contrast vs surface 7.75  OKLab L 0.81
+  #14b8a6  contrast vs surface 5.77  OKLab L 0.70
+  #a78bfa  contrast vs surface 5.28  OKLab L 0.71
+  #fb7185  contrast vs surface 5.34  OKLab L 0.72
+  #60a5fa  contrast vs surface 5.65  OKLab L 0.71
+  adjacent #22c3e6-#f5b301: normal dE  28.0 (>=15)  worst CVD dE  22.5 (>=8 target)  PASS
+  adjacent #f5b301-#14b8a6: normal dE  24.7 (>=15)  worst CVD dE  15.1 (>=8 target)  PASS
+  adjacent #14b8a6-#a78bfa: normal dE  23.4 (>=15)  worst CVD dE  12.0 (>=8 target)  PASS
+  adjacent #a78bfa-#fb7185: normal dE  21.1 (>=15)  worst CVD dE  17.6 (>=8 target)  PASS
+  adjacent #fb7185-#60a5fa: normal dE  26.9 (>=15)  worst CVD dE  17.4 (>=8 target)  PASS
+  for reference cyan vs teal: normal dE 9.3, worst CVD dE 5.9
+WORST adjacent: normal 21.1, CVD 12.0

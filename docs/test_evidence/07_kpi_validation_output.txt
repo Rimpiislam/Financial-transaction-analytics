@@ -1,0 +1,107 @@
+﻿as_of_cutoff_utc|as_of_et_date
+----------------|-------------
+2026-11-13 00:00:00.000|2026-11-12
+== Q1 Overall KPIs (attempt date ET, all data)
+total_attempts|success_count|failed_count|pending_count|cancelled_count|success_rate_pct|failure_rate_pct|gross_successful_value_usd|attempted_value_usd
+--------------|-------------|------------|-------------|---------------|----------------|----------------|--------------------------|-------------------
+1000|806|144|19|31|84.84|15.16|500245.01|614959.52
+== Q2 Status mix by ET month + MoM (completed months only; month containing the as-of date = MTD)
+year_num|month_num|month_name|month_state|attempts|success|failed|pending|cancelled|success_rate_pct|gross_successful_value|mom_attempts_pct|mom_success_rate_pp
+--------|---------|----------|-----------|--------|-------|------|-------|---------|----------------|----------------------|----------------|-------------------
+2026|6|June|Completed|2|2|0|0|0|100.00|1034.02|NULL|NULL
+2026|7|July|Completed|331|272|48|4|7|85.00|164029.78|16450.00|-15.00
+2026|8|August|Completed|324|257|52|6|9|83.17|161761.93|-2.11|-1.83
+2026|9|September|Completed|343|275|44|9|15|86.21|173419.28|5.86|3.04
+== Q3 Status mix by payment method
+payment_method_name|attempts|success|failed|success_rate_pct
+-------------------|--------|-------|------|----------------
+ACH|315|245|50|83.05
+Card|362|303|42|87.83
+Wallet|323|258|52|83.23
+== Q4 Failure share by reason
+failure_reason_code|failures|share_of_failures_pct
+-------------------|--------|---------------------
+AUTH_TIMEOUT|36|25.00
+PROCESSOR_ERROR|25|17.36
+LIMIT_EXCEEDED|22|15.28
+INSUFFICIENT_FUNDS|20|13.89
+OTHER|16|11.11
+FRAUD_DECLINE|13|9.03
+INVALID_PAYMENT_DETAILS|12|8.33
+== Q5 Failure rate and AUTH_TIMEOUT by ET hour (0-23)
+et_hour|processed|failed|auth_timeout|failure_rate_pct|auth_timeout_rate_pct
+-------|---------|------|------------|----------------|---------------------
+0|34|1|1|2.94|2.94
+1|39|4|0|10.26|.00
+2|38|9|9|23.68|23.68
+3|27|8|7|29.63|25.93
+4|31|8|0|25.81|.00
+5|39|6|0|15.38|.00
+6|48|8|2|16.67|4.17
+7|38|6|0|15.79|.00
+8|35|6|1|17.14|2.86
+9|44|2|0|4.55|.00
+10|44|8|2|18.18|4.55
+11|47|2|0|4.26|.00
+12|37|2|0|5.41|.00
+13|47|5|1|10.64|2.13
+14|39|10|2|25.64|5.13
+15|51|7|1|13.73|1.96
+16|36|8|4|22.22|11.11
+17|45|13|1|28.89|2.22
+18|32|4|0|12.50|.00
+19|41|7|1|17.07|2.44
+20|46|5|1|10.87|2.17
+21|38|4|2|10.53|5.26
+22|34|8|1|23.53|2.94
+23|40|3|0|7.50|.00
+== Q6 Seeded window check: 02:00-03:59 ET vs all other hours (synthetic pattern, disclosed)
+window_name|processed|failed|auth_timeout|failure_rate_pct|auth_timeout_share_of_failures_pct
+-----------|---------|------|------------|----------------|----------------------------------
+02:00-03:59 ET|65|17|16|26.15|94.12
+other hours|885|127|20|14.35|15.75
+failure_rate_uplift_pct_window_vs_other
+---------------------------------------
+82.25
+== Q6b Approved KPI peak window (kpi_definitions.md test 7): ET hours 18,19,20 vs non-peak
+window_name|processed|failed|failure_rate_pct|uplift_vs_nonpeak_pct
+-----------|---------|------|----------------|---------------------
+peak 18:00-20:59 ET|119|16|13.45|-12.71
+non-peak|831|128|15.40|.00
+== Q7 Adjustments by type (event date ET, by month)
+year_num|month_num|adjustment_type|events|amount_usd
+--------|---------|---------------|------|----------
+2026|7|Refund|17|4988.73
+2026|7|Reversal|5|2900.64
+2026|8|Refund|30|7620.34
+2026|8|Reversal|9|5415.13
+2026|9|Refund|21|6551.69
+2026|9|Reversal|11|6383.16
+2026|10|Refund|9|1570.03
+adjustment_type|events|amount_usd
+---------------|------|----------
+Refund|77|20730.79
+Reversal|25|14698.93
+== Q8 Cohort refund / reversal rates by ORIGINAL attempt month, as-of cutoff, maturity
+year_num|month_num|maturity|successful_originals|refunded_txns|reversed_txns|refunded_txn_rate_pct|reversed_txn_rate_pct|refund_value_rate_pct
+--------|---------|--------|--------------------|-------------|-------------|---------------------|---------------------|---------------------
+2026|6|Mature|2|0|0|.00|.00|.00
+2026|7|Mature|272|29|5|10.66|1.84|4.49
+2026|8|Mature|257|27|9|10.51|3.50|5.53
+2026|9|Mature|275|21|11|7.64|4.00|2.55
+== Q9 Aged pending (> 24h before as-of cutoff; flag only, not rejected)
+aged_pending
+------------
+19
+== Q10 Consistency tests (kpi_definitions.md 1, 2, 4, 5): every row must show PASS
+test|result
+----|------
+T1 total = success+failed+pending+cancelled|PASS
+T2 success rate + failure rate = 100|PASS
+T5a every adjustment parent is Success|PASS
+T5b adjustment timestamp >= attempt timestamp|PASS
+T5c cumulative adjustments <= original amount|PASS
+T5d reversal = full amount and alone on its transaction|PASS
+T5e settlement timing (reversal < +24h <= refund)|PASS
+T6 adjustment method/attempt date = parent (denormalized keys)|PASS
+T7 every run reconciles rows_read = loaded + rejected|PASS

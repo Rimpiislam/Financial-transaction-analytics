@@ -1,0 +1,29 @@
+﻿Changed database context to 'FinancialIntelligence'.
+trancount_before_rollback|xact_state
+-------------------------|----------
+1|1
+test_no|test_name|expected_object|outcome|named_constraint_fired|error_number|error_message
+-------|---------|---------------|-------|----------------------|------------|-------------
+1|Negative amount|CK_fpa_amount|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fpa_amount". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt", column 'amount_usd'.
+2|Failure reason on non-Failed row|CK_fpa_failure|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fpa_failure". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt".
+3|Failed without reason|CK_fpa_failure|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fpa_failure". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt".
+4|Unknown payment method key|FK_fpa_method|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fpa_method". The conflict occurred in database "FinancialIntelligence", table "curated.dim_payment_method", column 'payment_method_key'.
+5|Unknown date key (2099)|FK_fpa_date|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fpa_date". The conflict occurred in database "FinancialIntelligence", table "curated.dim_date", column 'date_key'.
+6|Unknown failure reason key|FK_fpa_reason|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fpa_reason". The conflict occurred in database "FinancialIntelligence", table "curated.dim_failure_reason", column 'failure_reason_key'.
+7|Non-USD currency|CK_fpa_currency|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fpa_currency". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt", column 'currency'.
+8|Unknown status|CK_fpa_status|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fpa_status". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt", column 'status'.
+9|Unknown inserted_run_id|FK_fpa_ins_run|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fpa_ins_run". The conflict occurred in database "FinancialIntelligence", table "audit.etl_run", column 'run_id'.
+10|Second Reversal on same transaction|UX_fadj_one_reversal|PASS|yes|2601|Cannot insert duplicate key row in object 'curated.fact_adjustment' with unique index 'UX_fadj_one_reversal'. The duplicate key value is (TXN000001).
+11|Orphan adjustment (unknown txn)|FK_fadj_txn|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fadj_txn". The conflict occurred in database "FinancialIntelligence", table "curated.fact_payment_attempt", column 'transaction_id'.
+12|Unknown adjustment type|CK_fadj_type|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fadj_type". The conflict occurred in database "FinancialIntelligence", table "curated.fact_adjustment", column 'adjustment_type'.
+13|Zero adjustment amount|CK_fadj_amount|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_fadj_amount". The conflict occurred in database "FinancialIntelligence", table "curated.fact_adjustment", column 'adjustment_amount_usd'.
+14|Adjustment unknown payment method|FK_fadj_method|PASS|yes|547|The INSERT statement conflicted with the FOREIGN KEY constraint "FK_fadj_method". The conflict occurred in database "FinancialIntelligence", table "curated.dim_payment_method", column 'payment_method_key'.
+15|Second COMPLETED run for same batch|UX_etl_run_completed_batch|PASS|yes|2601|Cannot insert duplicate key row in object 'audit.etl_run' with unique index 'UX_etl_run_completed_batch'. The duplicate key value is (PAYMENT_ATTEMPT, payment_attempt_9a7f4f29d24b225b43a0).
+16|Unknown run status|CK_etl_run_status|PASS|yes|547|The INSERT statement conflicted with the CHECK constraint "CK_etl_run_status". The conflict occurred in database "FinancialIntelligence", table "audit.etl_run", column 'run_status'.
+17|Two reject_log rows for one source row|UQ_reject_one_per_row|PASS|yes|2627|Violation of UNIQUE KEY constraint 'UQ_reject_one_per_row'. Cannot insert duplicate key in object 'audit.reject_log'. The duplicate key value is (1, PAYMENT_ATTEMPT, neg:1).
+tbl|rows_before|rows_after_rollback
+---|-----------|-------------------
+fact_payment_attempt|1000|1000
+fact_adjustment|102|102
+etl_run|2|2
+reject_log|0|0
