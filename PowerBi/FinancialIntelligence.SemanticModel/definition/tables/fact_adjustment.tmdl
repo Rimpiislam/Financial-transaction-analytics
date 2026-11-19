@@ -1,0 +1,75 @@
+/// One row per accepted Refund/Reversal event (curated.fact_adjustment). The original attempt stays Success.
+table fact_adjustment
+
+	column adjustment_id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: adjustment_id
+
+	column transaction_id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: transaction_id
+
+	column adjustment_type
+		dataType: string
+		summarizeBy: none
+		sourceColumn: adjustment_type
+
+	column adjustment_amount_usd
+		dataType: decimal
+		isHidden
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		summarizeBy: none
+		sourceColumn: adjustment_amount_usd
+
+	column adjustment_timestamp_utc
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn:ss
+		summarizeBy: none
+		sourceColumn: adjustment_timestamp_utc
+
+	/// ET date of the adjustment event: ACTIVE relationship to dim_date (amount KPIs).
+	column adjustment_date_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: adjustment_date_key
+
+	/// ET date of the ORIGINAL attempt: INACTIVE relationship, used by cohort measures.
+	column attempt_date_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: attempt_date_key
+
+	column payment_method_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: payment_method_key
+
+	column loaded_run_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: loaded_run_id
+
+	partition fact_adjustment = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "curated", Item = "fact_adjustment"]}[Data],
+				    Typed = Table.TransformColumnTypes(Data, {
+				        {"adjustment_id", type text}, {"transaction_id", type text}, {"adjustment_type", type text},
+				        {"adjustment_amount_usd", Currency.Type}, {"adjustment_timestamp_utc", type datetime},
+				        {"adjustment_date_key", Int64.Type}, {"attempt_date_key", Int64.Type},
+				        {"payment_method_key", Int64.Type}, {"loaded_run_id", Int64.Type}})
+				in
+				    Typed
+

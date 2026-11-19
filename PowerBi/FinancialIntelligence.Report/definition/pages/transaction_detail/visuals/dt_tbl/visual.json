@@ -1,0 +1,239 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.14.0/schema.json",
+  "name": "dt_tbl",
+  "position": {
+    "x": 10,
+    "y": 210,
+    "z": 0,
+    "width": 1260,
+    "height": 550,
+    "tabOrder": 4
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_payment_attempt"
+                    }
+                  },
+                  "Property": "transaction_id"
+                }
+              },
+              "queryRef": "fact_payment_attempt.transaction_id",
+              "nativeQueryRef": "transaction_id",
+              "displayName": "Transaction"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_payment_attempt"
+                    }
+                  },
+                  "Property": "attempt_timestamp_utc"
+                }
+              },
+              "queryRef": "fact_payment_attempt.attempt_timestamp_utc",
+              "nativeQueryRef": "attempt_timestamp_utc",
+              "displayName": "Attempt (UTC)"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_payment_attempt"
+                    }
+                  },
+                  "Property": "attempt_hour_et"
+                }
+              },
+              "queryRef": "fact_payment_attempt.attempt_hour_et",
+              "nativeQueryRef": "attempt_hour_et",
+              "displayName": "ET hour"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_payment_attempt"
+                    }
+                  },
+                  "Property": "status"
+                }
+              },
+              "queryRef": "fact_payment_attempt.status",
+              "nativeQueryRef": "status",
+              "displayName": "Status"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_payment_method"
+                    }
+                  },
+                  "Property": "payment_method_name"
+                }
+              },
+              "queryRef": "dim_payment_method.payment_method_name",
+              "nativeQueryRef": "payment_method_name",
+              "displayName": "Method"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_failure_reason"
+                    }
+                  },
+                  "Property": "failure_reason_code"
+                }
+              },
+              "queryRef": "dim_failure_reason.failure_reason_code",
+              "nativeQueryRef": "failure_reason_code",
+              "displayName": "Failure reason"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_payment_attempt"
+                    }
+                  },
+                  "Property": "merchant_id"
+                }
+              },
+              "queryRef": "fact_payment_attempt.merchant_id",
+              "nativeQueryRef": "merchant_id",
+              "displayName": "Merchant"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Attempted Value"
+                }
+              },
+              "queryRef": "_Measures.Attempted Value",
+              "nativeQueryRef": "Attempted Value",
+              "displayName": "Amount"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "objects": {
+      "columnHeaders": [
+        {
+          "properties": {
+            "wordWrap": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#b6c4d6'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "values": [
+        {
+          "properties": {
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#f1f5f9'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "grid": [
+        {
+          "properties": {
+            "gridHorizontalColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#1e3d66'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Attempts behind the selected payment method / failure reason'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

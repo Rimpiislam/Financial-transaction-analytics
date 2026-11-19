@@ -1,0 +1,32 @@
+/// Hidden one-row table: the report-level as-of cutoff = stored extraction cutoff of the latest
+/// COMPLETED payment run (audit.etl_run). Never the system clock, never max(event timestamp).
+table AsOf
+	isHidden
+
+	column as_of_cutoff_utc
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd hh:nn
+		summarizeBy: none
+		sourceColumn: as_of_cutoff_utc
+
+	column as_of_et_date
+		dataType: dateTime
+		isHidden
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: as_of_et_date
+
+	partition AsOf = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase, [Query = "
+				        SELECT MAX(batch_extraction_cutoff_utc) AS as_of_cutoff_utc,
+				               CAST((MAX(batch_extraction_cutoff_utc) AT TIME ZONE 'UTC') AT TIME ZONE 'Eastern Standard Time' AS date) AS as_of_et_date
+				        FROM audit.etl_run
+				        WHERE run_status = 'COMPLETED' AND source_type = 'PAYMENT_ATTEMPT'"]),
+				    Typed = Table.TransformColumnTypes(Source, {{"as_of_cutoff_utc", type datetime}, {"as_of_et_date", type date}})
+				in
+				    Typed
+

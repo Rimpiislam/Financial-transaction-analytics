@@ -1,0 +1,104 @@
+/// One row per accepted transaction_id with its current status (curated.fact_payment_attempt).
+table fact_payment_attempt
+
+	column transaction_id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: transaction_id
+
+	column attempt_timestamp_utc
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn:ss
+		summarizeBy: none
+		sourceColumn: attempt_timestamp_utc
+
+	column attempt_date_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: attempt_date_key
+
+	/// ET hour of the attempt (0-23), derived in SQL with the same DST-aware conversion as attempt_date_key.
+	column attempt_hour_et
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: attempt_hour_et
+
+	column amount_usd
+		dataType: decimal
+		isHidden
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		summarizeBy: none
+		sourceColumn: amount_usd
+
+	column currency
+		dataType: string
+		summarizeBy: none
+		sourceColumn: currency
+
+	column merchant_id
+		dataType: string
+		summarizeBy: none
+		sourceColumn: merchant_id
+
+	column payment_method_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: payment_method_key
+
+	column status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: status
+
+	column failure_reason_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: failure_reason_key
+
+	column status_updated_at_utc
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn:ss
+		summarizeBy: none
+		sourceColumn: status_updated_at_utc
+
+	column inserted_run_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: inserted_run_id
+
+	column status_updated_run_id
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: status_updated_run_id
+
+	partition fact_payment_attempt = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase, [Query = "
+				        SELECT f.transaction_id, f.attempt_timestamp_utc, f.attempt_date_key,
+				               DATEPART(HOUR, (f.attempt_timestamp_utc AT TIME ZONE 'UTC') AT TIME ZONE 'Eastern Standard Time') AS attempt_hour_et,
+				               f.amount_usd, f.currency, f.merchant_id, f.payment_method_key, f.status,
+				               f.failure_reason_key, f.status_updated_at_utc, f.inserted_run_id, f.status_updated_run_id
+				        FROM curated.fact_payment_attempt AS f"]),
+				    Typed = Table.TransformColumnTypes(Source, {
+				        {"transaction_id", type text}, {"attempt_timestamp_utc", type datetime},
+				        {"attempt_date_key", Int64.Type}, {"attempt_hour_et", Int64.Type},
+				        {"amount_usd", Currency.Type}, {"currency", type text}, {"merchant_id", type text},
+				        {"payment_method_key", Int64.Type}, {"status", type text}, {"failure_reason_key", Int64.Type},
+				        {"status_updated_at_utc", type datetime}, {"inserted_run_id", Int64.Type},
+				        {"status_updated_run_id", Int64.Type}})
+				in
+				    Typed
+

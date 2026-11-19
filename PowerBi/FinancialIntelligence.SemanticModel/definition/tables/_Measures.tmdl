@@ -1,0 +1,330 @@
+/// Home table for all measures (no data). Definitions follow docs kpi_definitions.md v1.0.
+table _Measures
+
+	/// Count of valid attempts incl. Pending and Cancelled; ET attempt date.
+	measure 'Total Attempts' = COUNTROWS ( fact_payment_attempt )
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Attempts whose current status is Success (adjusted originals stay Success).
+	measure 'Success Count' = CALCULATE ( COUNTROWS ( fact_payment_attempt ), fact_payment_attempt[status] = "Success" )
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Attempts whose current status is Failed.
+	measure 'Failed Count' = CALCULATE ( COUNTROWS ( fact_payment_attempt ), fact_payment_attempt[status] = "Failed" )
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Non-final attempts; excluded from rate denominators.
+	measure 'Pending Count' = CALCULATE ( COUNTROWS ( fact_payment_attempt ), fact_payment_attempt[status] = "Pending" )
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Cancelled before processing; excluded from rates and value.
+	measure 'Cancelled Count' = CALCULATE ( COUNTROWS ( fact_payment_attempt ), fact_payment_attempt[status] = "Cancelled" )
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Rate denominator: only processed outcomes (Success + Failed).
+	measure 'Processed Count' = [Success Count] + [Failed Count]
+		formatString: #,0
+		displayFolder: 1 Attempts
+
+	/// Success / (Success + Failed); blank when nothing was processed.
+	measure 'Success Rate' = DIVIDE ( [Success Count], [Processed Count] )
+		formatString: 0.00%
+		displayFolder: 2 Rates
+
+	/// Failed / (Success + Failed); Success Rate + Failure Rate = 100%.
+	measure 'Failure Rate' = DIVIDE ( [Failed Count], [Processed Count] )
+		formatString: 0.00%
+		displayFolder: 2 Rates
+
+	/// Transaction Value: original amount of Success attempts only.
+	measure 'Gross Successful Value' = CALCULATE ( SUM ( fact_payment_attempt[amount_usd] ), fact_payment_attempt[status] = "Success" )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: 3 Amounts
+
+	/// Optional: amount of all valid attempts; never labelled Transaction Value.
+	measure 'Attempted Value' = SUM ( fact_payment_attempt[amount_usd] )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: 3 Amounts
+
+	/// Average ticket of successful attempts.
+	measure 'Avg Successful Amount' = DIVIDE ( [Gross Successful Value], [Success Count] )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: 3 Amounts
+
+	/// Refund amounts by ET adjustment EVENT date (active relationship); excludes reversals.
+	measure 'Refund Amount' = CALCULATE ( SUM ( fact_adjustment[adjustment_amount_usd] ), fact_adjustment[adjustment_type] = "Refund" )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: 4 Adjustments (event date)
+
+	/// Reversal amounts by ET adjustment EVENT date; excludes refunds.
+	measure 'Reversal Amount' = CALCULATE ( SUM ( fact_adjustment[adjustment_amount_usd] ), fact_adjustment[adjustment_type] = "Reversal" )
+		formatString: \$#,0.00;(\$#,0.00);\$#,0.00
+		displayFolder: 4 Adjustments (event date)
+
+	/// Refund events by ET event date.
+	measure 'Refund Count' = CALCULATE ( COUNTROWS ( fact_adjustment ), fact_adjustment[adjustment_type] = "Refund" )
+		formatString: #,0
+		displayFolder: 4 Adjustments (event date)
+
+	/// Reversal events by ET event date.
+	measure 'Reversal Count' = CALCULATE ( COUNTROWS ( fact_adjustment ), fact_adjustment[adjustment_type] = "Reversal" )
+		formatString: #,0
+		displayFolder: 4 Adjustments (event date)
+
+	/// Stored extraction cutoff of the latest COMPLETED payment run (report as-of).
+	measure 'As-of Cutoff UTC' = MAX ( AsOf[as_of_cutoff_utc] )
+		formatString: yyyy-mm-dd hh:nn
+		displayFolder: 5 As-of
+
+	/// ET calendar date of the as-of cutoff; used for maturity and completed-month tests.
+	measure 'As-of ET Date' = MAX ( AsOf[as_of_et_date] )
+		formatString: yyyy-mm-dd
+		displayFolder: 5 As-of
+
+	/// Card text so every page states its as-of basis.
+	measure 'As-of Label' = "As of " & FORMAT ( [As-of Cutoff UTC], "yyyy-mm-dd hh:nn" ) & " UTC (ET " & FORMAT ( [As-of ET Date], "yyyy-mm-dd" ) & ")"
+		displayFolder: 5 As-of
+
+	/// Distinct successful originals with >=1 refund observed by the as-of cutoff / successful originals, same ET attempt-date cohort.
+	measure 'Refunded Txn Rate (cohort)' =
+			VAR AsOfUtc = [As-of Cutoff UTC]
+			VAR Refunded =
+			    CALCULATE (
+			        DISTINCTCOUNT ( fact_adjustment[transaction_id] ),
+			        fact_adjustment[adjustment_type] = "Refund",
+			        fact_adjustment[adjustment_timestamp_utc] <= AsOfUtc,
+			        USERELATIONSHIP ( fact_adjustment[attempt_date_key], dim_date[date_key] )
+			    )
+			RETURN
+			    DIVIDE ( COALESCE ( Refunded, 0 ), [Success Count] )
+		formatString: 0.00%
+		displayFolder: 6 Cohort (original attempt date)
+
+	/// Distinct successful originals with a reversal observed by the as-of cutoff / successful originals, same cohort.
+	measure 'Reversed Txn Rate (cohort)' =
+			VAR AsOfUtc = [As-of Cutoff UTC]
+			VAR Reversed =
+			    CALCULATE (
+			        DISTINCTCOUNT ( fact_adjustment[transaction_id] ),
+			        fact_adjustment[adjustment_type] = "Reversal",
+			        fact_adjustment[adjustment_timestamp_utc] <= AsOfUtc,
+			        USERELATIONSHIP ( fact_adjustment[attempt_date_key], dim_date[date_key] )
+			    )
+			RETURN
+			    DIVIDE ( COALESCE ( Reversed, 0 ), [Success Count] )
+		formatString: 0.00%
+		displayFolder: 6 Cohort (original attempt date)
+
+	/// Refunds attributed to the original successful cohort / gross successful value of the SAME cohort.
+	measure 'Refund Value Rate (cohort)' =
+			VAR AsOfUtc = [As-of Cutoff UTC]
+			VAR RefundAmt =
+			    CALCULATE (
+			        SUM ( fact_adjustment[adjustment_amount_usd] ),
+			        fact_adjustment[adjustment_type] = "Refund",
+			        fact_adjustment[adjustment_timestamp_utc] <= AsOfUtc,
+			        USERELATIONSHIP ( fact_adjustment[attempt_date_key], dim_date[date_key] )
+			    )
+			RETURN
+			    DIVIDE ( COALESCE ( RefundAmt, 0 ), [Gross Successful Value] )
+		formatString: 0.00%
+		displayFolder: 6 Cohort (original attempt date)
+
+	/// Immature while as-of ET date < cohort period end (last calendar day in the selection) + 30 days.
+	measure 'Cohort Maturity' =
+			VAR CohortEnd = MAX ( dim_date[full_date] )
+			RETURN
+			    IF (
+			        NOT ISBLANK ( [Success Count] ),
+			        IF ( [As-of ET Date] < CohortEnd + 30, "Immature", "Mature" )
+			    )
+		displayFolder: 6 Cohort (original attempt date)
+
+	/// Completed = the ET month ended before the as-of ET date; otherwise MTD (no MoM shown).
+	measure 'Month State' =
+			VAR MonthEnd = EOMONTH ( MAX ( dim_date[full_date] ), 0 )
+			RETURN
+			    IF (
+			        HASONEVALUE ( dim_date[Year Month Key] ) && NOT ISBLANK ( [Total Attempts] ),
+			        IF ( MonthEnd < [As-of ET Date], "Completed", "MTD" )
+			    )
+		displayFolder: 7 Month over month
+
+	/// Attempts growth vs the immediately preceding month; completed months only; prior zero -> blank.
+	measure 'MoM Attempts %' =
+			VAR Prior = CALCULATE ( [Total Attempts], DATEADD ( dim_date[full_date], -1, MONTH ) )
+			RETURN
+			    IF ( [Month State] = "Completed", DIVIDE ( [Total Attempts] - Prior, Prior ) )
+		formatString: 0.00%
+		displayFolder: 7 Month over month
+
+	/// Gross successful value growth vs prior month; completed months only.
+	measure 'MoM Gross Successful Value %' =
+			VAR Prior = CALCULATE ( [Gross Successful Value], DATEADD ( dim_date[full_date], -1, MONTH ) )
+			RETURN
+			    IF ( [Month State] = "Completed", DIVIDE ( [Gross Successful Value] - Prior, Prior ) )
+		formatString: 0.00%
+		displayFolder: 7 Month over month
+
+	/// Success-rate change vs prior month in percentage points; completed months only.
+	measure 'MoM Success Rate (pp)' =
+			VAR Prior = CALCULATE ( [Success Rate], DATEADD ( dim_date[full_date], -1, MONTH ) )
+			RETURN
+			    IF ( [Month State] = "Completed" && NOT ISBLANK ( Prior ), ( [Success Rate] - Prior ) * 100 )
+		formatString: 0.00" pp"
+		displayFolder: 7 Month over month
+
+	/// Failures with the reason in context / all failures (blank reason excluded by design).
+	measure 'Failure Share by Reason' = DIVIDE ( [Failed Count], CALCULATE ( [Failed Count], REMOVEFILTERS ( dim_failure_reason ) ) )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// AUTH_TIMEOUT failures / processed attempts; shows the seeded 02:00-03:59 ET pattern.
+	measure 'AUTH_TIMEOUT Rate' = DIVIDE ( CALCULATE ( [Failed Count], dim_failure_reason[failure_reason_code] = "AUTH_TIMEOUT" ), [Processed Count] )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// Failure rate inside the generator's seeded window (ET hours 2 and 3). Synthetic pattern, disclosed.
+	measure 'Failure Rate 02-03 ET' = CALCULATE ( [Failure Rate], fact_payment_attempt[attempt_hour_et] IN { 2, 3 } )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// Failure rate in all other ET hours.
+	measure 'Failure Rate Other Hours' = CALCULATE ( [Failure Rate], NOT fact_payment_attempt[attempt_hour_et] IN { 2, 3 } )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// (window rate / other-hours rate - 1); published only because it is computed from the data.
+	measure 'Seeded Window Uplift %' = DIVIDE ( [Failure Rate 02-03 ET], [Failure Rate Other Hours] ) - 1
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// KPI doc test 7: approved candidate peak window = ET hours 18, 19, 20 (18:00 inclusive to 21:00 exclusive).
+	measure 'Failure Rate Peak 18-20 ET' = CALCULATE ( [Failure Rate], fact_payment_attempt[attempt_hour_et] IN { 18, 19, 20 } )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// KPI doc test 7: failure rate outside the approved peak window.
+	measure 'Failure Rate Non-peak' = CALCULATE ( [Failure Rate], NOT fact_payment_attempt[attempt_hour_et] IN { 18, 19, 20 } )
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// KPI doc test 7: (peak failure rate / non-peak failure rate - 1).
+	measure 'Peak Uplift %' = DIVIDE ( [Failure Rate Peak 18-20 ET], [Failure Rate Non-peak] ) - 1
+		formatString: 0.00%
+		displayFolder: 8 Failure analysis
+
+	/// Last day of the latest COMPLETED ET month that has attempts (respects payment-method filter, ignores date filter).
+	measure 'Latest Completed Month End' =
+			VAR AsOfDate = [As-of ET Date]
+			VAR LastDataDate = CALCULATE ( MAX ( dim_date[full_date] ), REMOVEFILTERS ( dim_date ), fact_payment_attempt )
+			RETURN
+			    IF ( EOMONTH ( LastDataDate, 0 ) < AsOfDate, EOMONTH ( LastDataDate, 0 ), EOMONTH ( LastDataDate, -1 ) )
+		formatString: yyyy-mm-dd
+		displayFolder: 7 Month over month
+
+	/// Card line: attempts, latest completed month vs the month before (approved MoM rule, months named).
+	measure 'KPI Delta Attempts' =
+			VAR E = [Latest Completed Month End]
+			VAR PE = EOMONTH ( E, -1 )
+			VAR Cur = CALCULATE ( [Total Attempts], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], PE + 1, E ) )
+			VAR Prev = CALCULATE ( [Total Attempts], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], EOMONTH ( E, -2 ) + 1, PE ) )
+			VAR D = DIVIDE ( Cur - Prev, Prev )
+			RETURN
+			    IF ( ISBLANK ( D ), "No prior completed month",
+			        IF ( D >= 0, "▲ ", "▼ " ) & FORMAT ( D, "+0.0%;-0.0%" ) & "   " & FORMAT ( E, "mmm yyyy" ) & " vs " & FORMAT ( PE, "mmm yyyy" ) )
+		displayFolder: 7 Month over month
+
+	/// Card line: gross successful value, latest completed month vs the month before.
+	measure 'KPI Delta Value' =
+			VAR E = [Latest Completed Month End]
+			VAR PE = EOMONTH ( E, -1 )
+			VAR Cur = CALCULATE ( [Gross Successful Value], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], PE + 1, E ) )
+			VAR Prev = CALCULATE ( [Gross Successful Value], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], EOMONTH ( E, -2 ) + 1, PE ) )
+			VAR D = DIVIDE ( Cur - Prev, Prev )
+			RETURN
+			    IF ( ISBLANK ( D ), "No prior completed month",
+			        IF ( D >= 0, "▲ ", "▼ " ) & FORMAT ( D, "+0.0%;-0.0%" ) & "   " & FORMAT ( E, "mmm yyyy" ) & " vs " & FORMAT ( PE, "mmm yyyy" ) )
+		displayFolder: 7 Month over month
+
+	/// Card line: success-rate change in percentage points, latest completed month vs the month before.
+	measure 'KPI Delta Success' =
+			VAR E = [Latest Completed Month End]
+			VAR PE = EOMONTH ( E, -1 )
+			VAR Cur = CALCULATE ( [Success Rate], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], PE + 1, E ) )
+			VAR Prev = CALCULATE ( [Success Rate], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], EOMONTH ( E, -2 ) + 1, PE ) )
+			VAR D = ( Cur - Prev ) * 100
+			RETURN
+			    IF ( ISBLANK ( Prev ) || ISBLANK ( Cur ), "No prior completed month",
+			        IF ( D >= 0, "▲ ", "▼ " ) & FORMAT ( D, "+0.00;-0.00" ) & " pp   " & FORMAT ( E, "mmm yyyy" ) & " vs " & FORMAT ( PE, "mmm yyyy" ) )
+		displayFolder: 7 Month over month
+
+	/// Card line: failed attempts, latest completed month vs the month before.
+	measure 'KPI Delta Failed' =
+			VAR E = [Latest Completed Month End]
+			VAR PE = EOMONTH ( E, -1 )
+			VAR Cur = CALCULATE ( [Failed Count], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], PE + 1, E ) )
+			VAR Prev = CALCULATE ( [Failed Count], REMOVEFILTERS ( dim_date ), DATESBETWEEN ( dim_date[full_date], EOMONTH ( E, -2 ) + 1, PE ) )
+			VAR D = DIVIDE ( Cur - Prev, Prev )
+			RETURN
+			    IF ( ISBLANK ( D ), "No prior completed month",
+			        IF ( D >= 0, "▲ ", "▼ " ) & FORMAT ( D, "+0.0%;-0.0%" ) & "   " & FORMAT ( E, "mmm yyyy" ) & " vs " & FORMAT ( PE, "mmm yyyy" ) )
+		displayFolder: 7 Month over month
+
+	/// Colour of the card line: green when the change is good, red when bad (failed attempts: up is bad).
+	measure 'KPI Delta Color Attempts' = IF ( LEFT ( [KPI Delta Attempts], 1 ) = "▼", "#f43f5e", "#22c55e" )
+		displayFolder: 9 Formatting
+
+	measure 'KPI Delta Color Value' = IF ( LEFT ( [KPI Delta Value], 1 ) = "▼", "#f43f5e", "#22c55e" )
+		displayFolder: 9 Formatting
+
+	measure 'KPI Delta Color Success' = IF ( LEFT ( [KPI Delta Success], 1 ) = "▼", "#f43f5e", "#22c55e" )
+		displayFolder: 9 Formatting
+
+	measure 'KPI Delta Color Failed' = IF ( LEFT ( [KPI Delta Failed], 1 ) = "▲", "#f43f5e", "#22c55e" )
+		displayFolder: 9 Formatting
+
+	/// Highlight the generator's seeded window (ET hours 2-3) in amber on the hour chart; other hours slate.
+	measure 'Hour Bar Color' = IF ( SELECTEDVALUE ( fact_payment_attempt[attempt_hour_et] ) IN { 2, 3 }, "#f5b301", "#8a9bb4" )
+		displayFolder: 9 Formatting
+
+	/// Insight card text built only from existing measures (no new logic); states both windows honestly.
+	measure 'Key Insight Text' =
+			IF (
+			    NOT ISBLANK ( [Processed Count] ),
+			    "Failure rate is " & FORMAT ( [Seeded Window Uplift %], "+0%;-0%" ) & " higher at 02:00-03:59 ET ("
+			        & FORMAT ( [Failure Rate 02-03 ET], "0.0%" ) & " vs " & FORMAT ( [Failure Rate Other Hours], "0.0%" )
+			        & "), driven by AUTH_TIMEOUT (seeded in the synthetic data). Approved 18:00-20:59 ET peak: "
+			        & FORMAT ( [Peak Uplift %], "+0.0%;-0.0%" ) & "."
+			)
+		displayFolder: 8 Failure analysis
+
+	/// Pending attempts older than 24h at the as-of cutoff: flag only, never converted or rejected.
+	measure 'Aged Pending Count' =
+			VAR AsOfUtc = [As-of Cutoff UTC]
+			RETURN
+			    CALCULATE (
+			        COUNTROWS ( fact_payment_attempt ),
+			        fact_payment_attempt[status] = "Pending",
+			        fact_payment_attempt[attempt_timestamp_utc] < AsOfUtc - 1
+			    ) + 0
+		formatString: #,0
+		displayFolder: 8 Failure analysis
+
+	column Value
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Value]
+
+	partition _Measures = calculated
+		mode: import
+		source = ROW ( "Value", 0 )
+

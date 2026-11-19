@@ -1,0 +1,10 @@
+/// SQL Server instance. Change here (Transform data > Edit parameters) to point at another server.
+expression SqlServer = "localhost\SQLEXPRESS01" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+	annotation PBI_ResultType = Text
+
+/// Database holding the curated + audit schemas.
+expression SqlDatabase = "FinancialIntelligence" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+	annotation PBI_ResultType = Text
+

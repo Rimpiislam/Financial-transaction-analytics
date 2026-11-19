@@ -1,0 +1,25 @@
+/// Card, ACH, Wallet (curated.dim_payment_method). Filters both facts.
+table dim_payment_method
+
+	column payment_method_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: payment_method_key
+
+	column payment_method_name
+		dataType: string
+		summarizeBy: none
+		sourceColumn: payment_method_name
+
+	partition dim_payment_method = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "curated", Item = "dim_payment_method"]}[Data],
+				    Typed = Table.TransformColumnTypes(Data, {{"payment_method_key", Int64.Type}, {"payment_method_name", type text}})
+				in
+				    Typed
+

@@ -1,0 +1,25 @@
+/// The seven approved failure codes (curated.dim_failure_reason). Only Failed attempts link here.
+table dim_failure_reason
+
+	column failure_reason_key
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: failure_reason_key
+
+	column failure_reason_code
+		dataType: string
+		summarizeBy: none
+		sourceColumn: failure_reason_code
+
+	partition dim_failure_reason = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "curated", Item = "dim_failure_reason"]}[Data],
+				    Typed = Table.TransformColumnTypes(Data, {{"failure_reason_key", Int64.Type}, {"failure_reason_code", type text}})
+				in
+				    Typed
+

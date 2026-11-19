@@ -1,0 +1,25 @@
+relationship fpa_attempt_date
+	fromColumn: fact_payment_attempt.attempt_date_key
+	toColumn: dim_date.date_key
+
+relationship fpa_payment_method
+	fromColumn: fact_payment_attempt.payment_method_key
+	toColumn: dim_payment_method.payment_method_key
+
+relationship fpa_failure_reason
+	fromColumn: fact_payment_attempt.failure_reason_key
+	toColumn: dim_failure_reason.failure_reason_key
+
+relationship fadj_adjustment_date
+	fromColumn: fact_adjustment.adjustment_date_key
+	toColumn: dim_date.date_key
+
+relationship fadj_attempt_date_cohort
+	isActive: false
+	fromColumn: fact_adjustment.attempt_date_key
+	toColumn: dim_date.date_key
+
+relationship fadj_payment_method
+	fromColumn: fact_adjustment.payment_method_key
+	toColumn: dim_payment_method.payment_method_key
+
